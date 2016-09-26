@@ -161,3 +161,6 @@ def export_txt(columns, columns2, values):
     finally:
         if fh is not None:
             fh.close()
+
+if __name__ == "__main__":
+    main()
