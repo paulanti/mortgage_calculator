@@ -4,20 +4,24 @@ import os
 
 
 class DifferentPayments:
-    def __init__(self, amount, time, rate, date):
+    def __init__(self, amount, term, rate, date):
         self.amount = amount
-        self.time = time
+        self.term = term
         self.rate = rate
         self.date = date
-        self.base_amount_left = amount
+        self.balance = amount
+        self.payment_n = 0
+        self.total_interest = 0
+        self.total_payment = 0
+        self.total_principal = 0
 
 
     def amount(self):
         return self.amount
 
 
-    def time(self):
-        return self.time
+    def term(self):
+        return self.term
 
 
     def rate(self):
@@ -28,8 +32,9 @@ class DifferentPayments:
         return self.date
 
 
-    def payment(self):
-        return self.amount / self.time
+    def principal(self):
+        self.monthly_principal = self.amount / self.term
+        return self.monthly_principal
 
 
     def payment_date(self):
@@ -55,44 +60,71 @@ class DifferentPayments:
         return self.days_year
 
 
-    def month_rates(self):
-        self.month_percentage = ((self.base_amount_left * self.rate / 100) / self.days_in_year()) * self.days_in_month()
-        return self.month_percentage
+    def interest(self):
+        self.monthly_interest = ((self.balance * self.rate / 100) / self.days_in_year()) * self.days_in_month()
+        return self.monthly_interest
 
 
-    def amount_left(self):
-        self.base_amount_left -= self.payment()
-        return self.base_amount_left
-
-
-    def full_payment(self):
-        self.full_month_payment = self.month_rates() + self.payment()
-        return self.full_month_payment
-
-
-    def __str__(self):
-        return ("{0:<12} {3:<11.2f} {2:<12.2f} {1:<10.2f} {4:<12.2f}".format
-               (self.payment_date(), self.full_payment(), self.month_rates(), self.payment(), self.amount_left()))
-
-
-class AnnuityPayments(DifferentPayments):
-    def full_payment(self):
-        self.full_month_payment = (self.amount * (self.rate / 1200))/(1 - ((1 + (self.rate / 1200))**-self.time))
-        return self.full_month_payment
+    def cur_balance(self):
+        self.balance -= self.principal()
+        return self.balance
 
 
     def payment(self):
-        return self.full_payment() - self.month_rates()
+        self.monthly_payment = self.interest() + self.principal()
+        return self.monthly_payment
 
 
-def printer(calculator):
-    columns = ("{0:<4} {1:<12} {2:^11} {3:^10} {4:^10} {5:^10}\n".format
-              ("N", "Date", "BasePayment", "Percentage", "Payment", "Left"))
-    columns2 = ("{0:+<4} {0:+<12} {0:+<11} {0:+<10} {0:+<10} {0:+<12}\n".format("+"))
+    def number_of_payment(self):
+        self.payment_n += 1
+        return self.payment_n
+
+
+    def get_total_interest(self):
+        self.total_interest += self.monthly_interest
+        return self.total_interest
+
+
+    def get_total_payment(self):
+        self.total_payment += self.monthly_payment
+        return self.total_payment
+
+
+    def get_total_principal(self):
+        self.total_principal += self.monthly_principal
+        return self.total_principal
+
+
+    def __str__(self):
+        return ("{0:<4} {1:<12} {4:<10.2f} {3:<10.2f} {2:<10.2f} {5:<12.2f}".format
+               (self.number_of_payment(), self.payment_date(), self.payment(), 
+                self.interest(), self.principal(), self.cur_balance(),
+                self.get_total_interest(), self.get_total_payment(), self.get_total_principal()))
+
+
+class AnnuityPayments(DifferentPayments):
+    def payment(self):
+        self.monthly_payment = (self.amount * (self.rate / 1200))/(1 - ((1 + (self.rate / 1200))**-self.term))
+        if (self.payment_n == self.term) and self.balance != 0:
+            self.monthly_payment += (self.interest() + self.balance - self.monthly_payment)
+        return self.monthly_payment
+
+
+    def principal(self):
+        self.monthly_principal = self.payment() - self.interest()
+        return self.monthly_principal
+
+
+def mortgage_shedule(calculator):
+    columns = ("{0:<4} {1:<12} {2:^10} {3:^10} {4:^10} {5:^10}\n".format
+              ("N", "Date", "Principal", "Interest", "Payment", "Balance"))
+    columns2 = ("{0:+<4} {0:+<12} {0:+<10} {0:+<10} {0:+<10} {0:+<10}\n".format("+"))
     values = ""
-    for i in range(calculator.time):
-        values += ("{0:<4} {1}\n".format(i+1, calculator))
-    return columns, columns2, values
+    for i in range(calculator.term):
+        values += ("{0}\n".format(calculator))
+    total = ("\nTotal: {0:-<10} {1:<10.2f} {2:<10.2f} {3:<10.2f} {0:-<10}".format
+            ("-", calculator.total_principal, calculator.total_interest, calculator.total_payment))
+    return columns, columns2, values, total
 
 
 def main():
@@ -105,10 +137,10 @@ def main():
             print("Amount must be integer.")
     while arguments is False:
         try:
-            time = int(input("Enter time: "))
+            term = int(input("Enter term in months: "))
             arguments = True
         except ValueError:
-            print("Time must be integer.")
+            print("Term must be integer.")
     while arguments is True:
         try:
             rate = float(input("Enter rate: "))
@@ -125,14 +157,14 @@ def main():
     while arguments is True:
         calculator_type = input("1 - Annuity payments\n2 - Different payments\n")
         if calculator_type == "1":
-            m = AnnuityPayments(amount, time, rate, date)
-            columns, columns2, values = printer(m)
-            print(columns, columns2, values, sep="")
+            m = AnnuityPayments(amount, term, rate, date)
+            columns, columns2, values, total = mortgage_shedule(m)
+            print(columns, columns2, values, total, sep="")
             arguments = False
         elif calculator_type == "2":
-            m = DifferentPayments(amount, time, rate, date)
-            columns, columns2, values = printer(m)
-            print(columns, columns2, values, sep="")
+            m = DifferentPayments(amount, term, rate, date)
+            columns, columns2, values, total = mortgage_shedule(m)
+            print(columns, columns2, values, total, sep="")
             arguments = False
         else:
             print("Enter 1 or 2\n")
@@ -148,7 +180,7 @@ def main():
             print("Enter y or n\n")
 
 
-def export_txt(columns, columns2, values):
+def export_txt(columns, columns2, values, total):
     fh = None
     try:
         fh = open("mortgage_calculator.txt", "w")
